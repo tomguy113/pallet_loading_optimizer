@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>台灣車型選擇計算器 - 棧板配置最佳化</title>
+    <style>
+        body {
+            font-family: 'Microsoft JhengHei', Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .input-section {
+            background: #ecf0f1;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .pallet-input {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .pallet-input label {
+            font-weight: bold;
+            min-width: 80px;
+        }
+        
+        .pallet-input input {
+            padding: 8px;
+            border: 1px solid #bdc3c7;
+            border-radius: 4px;
+            width: 100px;
+        }
+        
+        .btn {
+            background: #3498db;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: button;
+            margin: 5px;
+        }
+        
+        .btn:hover {
+            background: #2980b9;
+        }
+        
+        .btn-danger {
+            background: #e74c3c;
+        }
+        
+        .btn-danger:hover {
+            background: #c0392b;
+        }
+        
+        .btn-success {
+            background: #27ae60;
+        }
+        
+        .btn-success:hover {
+            background: #219a52;
+        }
+        
+        .results {
+            margin-top: 30px;
+        }
+        
+        .vehicle-option {
+            border: 2px solid #ecf0f1;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 15px 0;
+            transition: all 0.3s;
+        }
+        
+        .vehicle-option.recommended {
+            border-color: #27ae60;
+            background: #d5f4e6;
+        }
+        
+        .vehicle-option.not-suitable {
+            border-color: #e74c3c;
+            background: #fdf2f2;
+        }
+        
+        .vehicle-title {
+            font-size: 1.4em;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+        
+        .specs {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin: 15px 0;
+        }
+        
+        .spec-item {
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            border-left: 4px solid #3498db;
+        }
+        
+        .layout-display {
+            margin-top: 15px;
+            padding: 15px;
+            background: white;
+            border-radius: 5px;
+            border: 1px solid #ecf0f1;
+        }
+        
+        .pallet-grid {
+            display: inline-block;
+            margin: 10px;
+            padding: 10px;
+            border: 2px solid #3498db;
+            background: #ebf3fd;
+            text-align: center;
+            min-width: 60px;
+            border-radius: 3px;
+        }
+        
+        .error {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+        
+        .success {
+            color: #27ae60;
+            font-weight: bold;
+        }
+        
+        .warning {
+            color: #f39c12;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚛 台灣車型選擇計算器</h1>
+        <p style="text-align: center; color: #7f8c8d;">根據棧板尺寸與數量，智能推薦最適合的車型（3.49噸/8.8噸/17噸）</p>
+        
+        <div class="input-section">
+            <h3>棧板資訊輸入</h3>
+            <div id="pallet-inputs">
+                <div class="pallet-input">
+                    <label>棧板類型:</label>
+                    <input type="number" placeholder="長度(cm)" class="pallet-length" value="110">
+                    <span>×</span>
+                    <input type="number" placeholder="寬度(cm)" class="pallet-width" value="110">
+                    <span>cm，數量:</span>
+                    <input type="number" placeholder="數量" class="pallet-count" value="1" min="1">
+                    <button class="btn btn-danger" onclick="removePallet(this)">刪除</button>
+                </div>
+            </div>
+            
+            <div style="margin-top: 15px;">
+                <button class="btn" onclick="addPallet()">+ 新增棧板類型</button>
+                <button class="btn" onclick="addCommonPallet('110x110')">快速新增 110×110cm</button>
+                <button class="btn" onclick="addCommonPallet('120x100')">快速新增 120×100cm</button>
+                <button class="btn" onclick="addCommonPallet('120x80')">快速新增 120×80cm</button>
+                <button class="btn btn-success" onclick="calculate()">🔍 計算最佳車型</button>
+            </div>
+        </div>
+        
+        <div class="results" id="results"></div>
+    </div>
+
+    <script>
+        // 車型規格定義（修正版，移除description）
+        const vehicleSpecs = {
+            '3.49噸': {
+                name: '3.49噸中型貨車',
+                length: 340,
+                width: 170,
+                height: 160,
+                maxWeight: 1500,
+                volume: 80
+            },
+            '8.8噸': {
+                name: '8.8噸貨車',
+                length: 484,
+                width: 196,
+                height: 190,
+                maxWeight: 5000,
+                volume: 600
+            },
+            '17噸': {
+                name: '17噸大型貨車',
+                length: 859,
+                width: 240,
+                height: 260,
+                maxWeight: 7500,
+                volume: 1200
+            }
+        };
+
+        function addPallet() {
+            const container = document.getElementById('pallet-inputs');
+            const newPallet = document.createElement('div');
+            newPallet.className = 'pallet-input';
+            newPallet.innerHTML = `
+                <label>棧板類型:</label>
+                <input type="number" placeholder="長度(cm)" class="pallet-length" value="110">
+                <span>×</span>
+                <input type="number" placeholder="寬度(cm)" class="pallet-width" value="110">
+                <span>cm，數量:</span>
+                <input type="number" placeholder="數量" class="pallet-count" value="1" min="1">
+                <button class="btn btn-danger" onclick="removePallet(this)">刪除</button>
+            `;
+            container.appendChild(newPallet);
+        }
+
+        function addCommonPallet(size) {
+            const [length, width] = size.split('x').map(Number);
+            const container = document.getElementById('pallet-inputs');
+            const newPallet = document.createElement('div');
+            newPallet.className = 'pallet-input';
+            newPallet.innerHTML = `
+                <label>棧板類型:</label>
+                <input type="number" placeholder="長度(cm)" class="pallet-length" value="${length}">
+                <span>×</span>
+                <input type="number" placeholder="寬度(cm)" class="pallet-width" value="${width}">
+                <span>cm，數量:</span>
+                <input type="number" placeholder="數量" class="pallet-count" value="1" min="1">
+                <button class="btn btn-danger" onclick="removePallet(this)">刪除</button>
+            `;
+            container.appendChild(newPallet);
+        }
+
+        function removePallet(button) {
+            const container = document.getElementById('pallet-inputs');
+            if (container.children.length > 1) {
+                button.parentElement.remove();
+            } else {
+                alert('至少需要保留一個棧板類型！');
+            }
+        }
+
+        function calculate() {
+            const pallets = collectPalletData();
+            if (pallets.length === 0) {
+                alert('請至少輸入一種棧板類型！');
+                return;
+            }
+
+            const results = [];
+            
+            for (const [vehicleType, specs] of Object.entries(vehicleSpecs)) {
+                const result = calculateVehicleFit(pallets, specs, vehicleType);
+                results.push(result);
+            }
+
+            displayResults(results, pallets);
+        }
+
+        function collectPalletData() {
+            const palletInputs = document.querySelectorAll('.pallet-input');
+            const pallets = [];
+
+            palletInputs.forEach(input => {
+                const length = parseInt(input.querySelector('.pallet-length').value);
+                const width = parseInt(input.querySelector('.pallet-width').value);
+                const count = parseInt(input.querySelector('.pallet-count').value);
+
+                if (length > 0 && width > 0 && count > 0) {
+                    for (let i = 0; i < count; i++) {
+                        pallets.push({ length, width, id: pallets.length + i });
+                    }
+                }
+            });
+
+            return pallets;
+        }
+
+        function calculateVehicleFit(pallets, vehicleSpecs, vehicleType) {
+            const { length: vLength, width: vWidth, maxWeight } = vehicleSpecs;
+            
+            // 嘗試不同的排列方式
+            const layouts = [];
+            
+            // 方式1：按原始方向排列
+            layouts.push(packPallets(pallets, vLength, vWidth, false));
+            
+            // 方式2：允許90度旋轉
+            layouts.push(packPallets(pallets, vLength, vWidth, true));
+
+            // 選擇最佳排列方式
+            const bestLayout = layouts.reduce((best, current) => 
+                current.fittedCount > best.fittedCount ? current : best
+            );
+
+            const efficiency = pallets.length > 0 ? (bestLayout.fittedCount / pallets.length * 100) : 0;
+            
+            let recommendation = '';
+            if (efficiency === 100) {
+                recommendation = 'recommended';
+            } else if (efficiency >= 80) {
+                recommendation = 'suitable';
+            } else if (efficiency >= 50) {
+                recommendation = 'marginal';
+            } else {
+                recommendation = 'not-suitable';
+            }
+
+            return {
+                vehicleType,
+                specs: vehicleSpecs,
+                layout: bestLayout,
+                efficiency: efficiency.toFixed(1),
+                recommendation,
+                totalPallets: pallets.length,
+                fittedPallets: bestLayout.fittedCount
+            };
+        }
+
+        function packPallets(pallets, containerLength, containerWidth, allowRotation) {
+            const sortedPallets = [...pallets].sort((a, b) => (b.length * b.width) - (a.length * a.width));
+            const placed = [];
+            const notFitted = [];
+            
+            // 使用簡化的矩形裝箱算法
+            const occupiedSpaces = [];
+
+            for (const pallet of sortedPallets) {
+                let fitted = false;
+                const orientations = [
+                    { length: pallet.length, width: pallet.width },
+                ];
+                
+                if (allowRotation) {
+                    orientations.push({ length: pallet.width, width: pallet.length });
+                }
+
+                for (const orientation of orientations) {
+                    if (fitted) break;
+                    
+                    for (let x = 0; x <= containerLength - orientation.length; x += 10) {
+                        if (fitted) break;
+                        for (let y = 0; y <= containerWidth - orientation.width; y += 10) {
+                            const rect = {
+                                x, y,
+                                x2: x + orientation.length,
+                                y2: y + orientation.width
+                            };
+
+                            if (!isOverlapping(rect, occupiedSpaces) && 
+                                x + orientation.length <= containerLength && 
+                                y + orientation.width <= containerWidth) {
+                                occupiedSpaces.push(rect);
+                                placed.push({
+                                    ...pallet,
+                                    x, y,
+                                    placedLength: orientation.length,
+                                    placedWidth: orientation.width,
+                                    rotated: orientation.length !== pallet.length
+                                });
+                                fitted = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if (!fitted) {
+                    notFitted.push(pallet);
+                }
+            }
+
+            return {
+                placed,
+                notFitted,
+                fittedCount: placed.length,
+                utilization: ((placed.length / pallets.length) * 100).toFixed(1)
+            };
+        }
+
+        function isOverlapping(rect, occupiedSpaces) {
+            for (const occupied of occupiedSpaces) {
+                if (!(rect.x2 <= occupied.x || rect.x >= occupied.x2 || 
+                      rect.y2 <= occupied.y || rect.y >= occupied.y2)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function displayResults(results, allPallets) {
+            const resultsDiv = document.getElementById('results');
+            
+            // 排序結果：推薦的排在前面
+            results.sort((a, b) => {
+                if (a.recommendation === 'recommended' && b.recommendation !== 'recommended') return -1;
+                if (b.recommendation === 'recommended' && a.recommendation !== 'recommended') return 1;
+                return b.efficiency - a.efficiency;
+            });
+
+            let html = '<h2>🎯 車型推薦結果</h2>';
+            
+            results.forEach(result => {
+                const isRecommended = result.recommendation === 'recommended';
+                const isNotSuitable = result.recommendation === 'not-suitable';
+                
+                html += `
+                    <div class="vehicle-option ${result.recommendation}">
+                        <div class="vehicle-title">
+                            ${result.vehicleType} - ${result.specs.name}
+                            ${isRecommended ? ' ⭐ 推薦' : ''}
+                            ${isNotSuitable ? ' ❌ 不適合' : ''}
+                        </div>
+                        
+                        <div class="specs">
+                            <div class="spec-item">
+                                <strong>車廂尺寸:</strong><br>
+                                ${result.specs.length} × ${result.specs.width} × ${result.specs.height} cm
+                            </div>
+                            <div class="spec-item">
+                                <strong>載重能力:</strong><br>
+                                ${result.specs.maxWeight} kg
+                            </div>
+                            <div class="spec-item">
+                                <strong>裝載效率:</strong><br>
+                                <span class="${result.efficiency >= 80 ? 'success' : result.efficiency >= 50 ? 'warning' : 'error'}">
+                                    ${result.efficiency}%
+                                </span>
+                            </div>
+                            <div class="spec-item">
+                                <strong>棧板配置:</strong><br>
+                                ${result.fittedPallets}/${result.totalPallets} 個
+                            </div>
+                        </div>
+                        
+                        <div class="layout-display">
+                            <h4>📦 棧板配置圖:</h4>
+                            <div style="font-size: 0.9em; color: #666; margin-bottom: 10px;">
+                                車廂: ${result.specs.length}×${result.specs.width}cm
+                            </div>
+                            ${generateLayoutVisualization(result.layout, result.specs)}
+                            
+                            ${result.layout.notFitted.length > 0 ? `
+                                <div style="margin-top: 15px;">
+                                    <span class="error">⚠️ 無法裝載的棧板: ${result.layout.notFitted.length} 個</span>
+                                    <div style="font-size: 0.9em; color: #666;">
+                                        ${result.layout.notFitted.map(p => `${p.length}×${p.width}cm`).join(', ')}
+                                    </div>
+                                </div>
+                            ` : '<div class="success">✅ 所有棧板都能完美裝載！</div>'}
+                        </div>
+                    </div>
+                `;
+            });
+
+            resultsDiv.innerHTML = html;
+        }
+
+        function generateLayoutVisualization(layout, vehicleSpecs) {
+            const scale = 0.5; // 縮放比例
+            const containerWidth = vehicleSpecs.length * scale;
+            const containerHeight = vehicleSpecs.width * scale;
+            
+            let svg = `
+                <svg width="${containerWidth + 50}" height="${containerHeight + 50}" style="border: 2px solid #34495e; background: #ecf0f1;">
+                    <rect x="25" y="25" width="${containerWidth}" height="${containerHeight}" 
+                          fill="white" stroke="#34495e" stroke-width="2"/>
+            `;
+
+            // 繪製已放置的棧板
+            layout.placed.forEach((pallet, index) => {
+                const x = 25 + pallet.x * scale;
+                const y = 25 + pallet.y * scale;
+                const width = pallet.placedLength * scale;
+                const height = pallet.placedWidth * scale;
+                
+                const color = `hsl(${(index * 137.5) % 360}, 70%, 80%)`;
+                
+                svg += `
+                    <rect x="${x}" y="${y}" width="${width}" height="${height}" 
+                          fill="${color}" stroke="#2c3e50" stroke-width="1" opacity="0.8"/>
+                    <text x="${x + width/2}" y="${y + height/2}" 
+                          text-anchor="middle" dominant-baseline="middle" 
+                          font-size="8" font-weight="bold">
+                        ${pallet.length}×${pallet.width}
+                        ${pallet.rotated ? '↻' : ''}
+                    </text>
+                `;
+            });
+
+            svg += '</svg>';
+            
+            return svg + `
+                <div style="margin-top: 10px; font-size: 0.9em;">
+                    <span class="success">✅ 已放置: ${layout.placed.length} 個棧板</span>
+                    ${layout.placed.some(p => p.rotated) ? '<span style="margin-left: 15px;">↻ = 已旋轉90°</span>' : ''}
+                </div>
+            `;
+        }
+
+        // 頁面載入時初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 可以在這裡添加預設的棧板配置
+        });
+    </script>
+</body>
+</html>
