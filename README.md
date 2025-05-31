@@ -106,6 +106,3 @@
 ## 📜 授權
 
 本專案採用 [MIT License](LICENSE) 開源授權。
-
----
-希望這個 `README.md` 檔案能夠幫助您的 GitHub 專案更好地呈現！
