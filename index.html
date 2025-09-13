@@ -664,7 +664,6 @@
         /* Application-specific styles for Taiwan Truck Calculator */
         
         .subtitle {
-            text-align: center;
             color: var(--color-text-secondary);
             margin-bottom: var(--space-32);
             font-size: var(--font-size-lg);
@@ -891,7 +890,6 @@
         }
         
         svg text {
-            fill: var(--color-text);
             font-family: var(--font-family-base);
         }
         /* Styles for fixed space (pallet jack) */
@@ -941,21 +939,42 @@
         .price-input-group input[type="number"] {
             width: 120px; /* Adjust as needed */
         }
+
+        #back-to-top {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            display: none; /* Hidden by default */
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background-color: var(--color-primary);
+            color: var(--color-btn-primary-text);
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            z-index: 1000;
+            box-shadow: var(--shadow-lg);
+            transition: opacity 0.3s, visibility 0.3s;
+        }
+        #back-to-top:hover {
+            background-color: var(--color-primary-hover);
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>🚛 台灣車型選擇計算器</h1>
-        <p class="subtitle">根據棧板尺寸、高度、重量與數量，智能推薦最經濟的車型方案</p>
+        <p class="subtitle">根據棧板尺寸、高度、重量與數量，推薦最經濟的車型方案<br><small style="color: var(--color-text-secondary);">(小提示：輸入完成後可直接按下 Enter 鍵進行計算)</small></p>
         
         <div class="input-section">
             <h3>棧板資訊輸入</h3>
             <div id="pallet-inputs">
                 <div class="pallet-input">
                     <label for="pallet-default-length">棧板類型:</label>
-                    <input type="number" placeholder="長度(cm)" class="pallet-length form-control" id="pallet-default-length" value="110">
+                    <input type="number" placeholder="長度(cm)" class="pallet-length form-control" id="pallet-default-length" value="120">
                     <span>×</span>
-                    <input type="number" placeholder="寬度(cm)" class="pallet-width form-control" id="pallet-default-width" value="110">
+                    <input type="number" placeholder="寬度(cm)" class="pallet-width form-control" id="pallet-default-width" value="100">
                     <span>cm，</span>
                     <label for="pallet-default-height">高(cm):</label>
                     <input type="number" placeholder="高度(cm)" class="pallet-height form-control" id="pallet-default-height" value="100">
@@ -975,28 +994,12 @@
             </div>
         </div>
 
-        <!-- 新增的固定佔用空間區塊 -->
-        <div class="fixed-space-options">
-            <label for="includePalletJack">
-                <input type="checkbox" id="includePalletJack">
-                包含油壓車 (固定佔用空間: 40 × 68.5 cm，放置於車廂最右方)
-            </label>
-        </div>
-
         <!-- 新增的貨車單價設定區塊 -->
         <div class="truck-prices-input">
-            <h3>貨車單價設定</h3>
-            <div class="price-input-group">
-                <label for="price-349">3.49噸貨車單價 ($):</label>
-                <input type="number" id="price-349" class="form-control" value="3000" min="0">
-            </div>
-            <div class="price-input-group">
-                <label for="price-88">8.8噸貨車單價 ($):</label>
-                <input type="number" id="price-88" class="form-control" value="6500" min="0">
-            </div>
-            <div class="price-input-group">
-                <label for="price-17">17噸貨車單價 ($):</label>
-                <input type="number" id="price-17" class="form-control" value="8500" min="0">
+            <h3>車行與單價設定</h3>
+            <p>請確認各車型單價與材積，計算時將會評估所有車型。</p>
+            <div id="price-inputs-wrapper">
+                <!-- Price inputs populated by JS -->
             </div>
         </div>
         
@@ -1005,44 +1008,36 @@
         <div class="results" id="results"></div>
     </div>
 
-    <script>
-        // 車型規格定義
-        const vehicleSpecs = {
-            '3.49噸': {
-                name: '3.49噸中型貨車',
-                length: 340,
-                width: 170,
-                height: 160,
-                maxWeight: 1500,
-            },
-            '8.8噸': {
-                name: '8.8噸貨車',
-                length: 484,
-                width: 196,
-                height: 190,
-                maxWeight: 5000,
-            },
-            '17噸': {
-                name: '17噸大型貨車',
-                length: 859,
-                width: 240,
-                height: 260,
-                maxWeight: 7500,
-            }
-        };
+    <button id="back-to-top" title="回到最上方">↑</button>
 
-        // 油壓車固定佔用空間定義
-        // 實際尺寸：長68.5cm x 寬40cm
-        // 放置於車廂最右方，且順時針轉90度，
-        // 意味著在車廂平面圖上，其「長度」會沿著車廂的Y軸（寬度方向），
-        // 其「寬度」會沿著車廂的X軸（長度方向）。
-        const PALLET_JACK_SPACE = {
-            actualLength: 68.5, // 油壓車的實際長度
-            actualWidth: 40,    // 油壓車的實際寬度
-            name: "油壓車",
-            id: "fixedPalletJack" 
+    <script>
+        // 車型規格定義 (整合所有車行)
+        const vehicleSpecs = {
+            '大誠-3.49T': { name: '3.49T (大誠)', length: 340, width: 170, height: 160, maxWeight: 1500, price: 3000 },
+            '元皓-8.8T': { name: '8.8T (元皓)', length: 580, width: 200, height: 200, maxWeight: 5000, price: 6500 },
+            '元皓-17T': { name: '17T (元皓)', length: 810, width: 238, height: 240, maxWeight: 7500, price: 8500 },
+            '翔太-17T': { name: '17T (翔太)', length: 800, width: 240, height: 238, maxWeight: 7500, price: 8500 }
         };
         
+        function populateVehiclePriceInputs() {
+            const wrapper = document.getElementById('price-inputs-wrapper');
+            wrapper.innerHTML = ''; // Clear existing inputs
+
+            for (const [vehicleKey, spec] of Object.entries(vehicleSpecs)) {
+                const volumeM3 = (spec.length * spec.width * spec.height / 1000000).toFixed(1);
+                const inputGroup = document.createElement('div');
+                inputGroup.className = 'price-input-group';
+                
+                const uniqueId = `price-${vehicleKey}`.replace(/\s/g, '-');
+
+                inputGroup.innerHTML = `
+                    <label for="${uniqueId}">${spec.name} (${spec.length}x${spec.width}x${spec.height}cm, ${volumeM3} m³):</label>
+                    <input type="number" id="${uniqueId}" class="form-control truck-price-input" value="${spec.price}" min="0" data-vehicle-type="${vehicleKey}">
+                `;
+                wrapper.appendChild(inputGroup);
+            }
+        }
+
         function addPallet() {
             const container = document.getElementById('pallet-inputs');
             const newPallet = document.createElement('div');
@@ -1050,9 +1045,9 @@
             const uniqueIdPrefix = `pallet-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
             newPallet.innerHTML = `
                 <label for="${uniqueIdPrefix}-length">棧板類型:</label>
-                <input type="number" placeholder="長度(cm)" class="pallet-length form-control" id="${uniqueIdPrefix}-length" value="110">
+                <input type="number" placeholder="長度(cm)" class="pallet-length form-control" id="${uniqueIdPrefix}-length" value="120">
                 <span>×</span>
-                <input type="number" placeholder="寬度(cm)" class="pallet-width form-control" id="${uniqueIdPrefix}-width" value="110">
+                <input type="number" placeholder="寬度(cm)" class="pallet-width form-control" id="${uniqueIdPrefix}-width" value="100">
                 <span>cm，</span>
                 <label for="${uniqueIdPrefix}-height">高(cm):</label>
                 <input type="number" placeholder="高度(cm)" class="pallet-height form-control" id="${uniqueIdPrefix}-height" value="100">
@@ -1099,19 +1094,22 @@
 
         function getVehiclePricesFromUI() {
             const prices = {};
-            const price349Input = document.getElementById('price-349');
-            const price88Input = document.getElementById('price-88');
-            const price17Input = document.getElementById('price-17');
-
-            prices['3.49噸'] = parseInt(price349Input.value);
-            prices['8.8噸'] = parseInt(price88Input.value);
-            prices['17噸'] = parseInt(price17Input.value);
-
+            const priceInputs = document.querySelectorAll('.truck-price-input');
             let pricesValid = true;
-            if (isNaN(prices['3.49噸']) || prices['3.49噸'] < 0) { price349Input.style.borderColor = "red"; pricesValid = false; } else { price349Input.style.borderColor = ""; }
-            if (isNaN(prices['8.8噸']) || prices['8.8噸'] < 0) { price88Input.style.borderColor = "red"; pricesValid = false; } else { price88Input.style.borderColor = ""; }
-            if (isNaN(prices['17噸']) || prices['17噸'] < 0) { price17Input.style.borderColor = "red"; pricesValid = false; } else { price17Input.style.borderColor = ""; }
 
+            priceInputs.forEach(input => {
+                const vehicleType = input.dataset.vehicleType;
+                const price = parseInt(input.value);
+
+                if (isNaN(price) || price < 0) {
+                    input.style.borderColor = "red";
+                    pricesValid = false;
+                } else {
+                    input.style.borderColor = "";
+                    prices[vehicleType] = price;
+                }
+            });
+            
             if (!pricesValid) {
                 alert("貨車單價必須是有效的非負數字！錯誤欄位已標紅。");
                 return null;
@@ -1185,10 +1183,11 @@
                 return;
             }
 
-            const includePalletJack = document.getElementById('includePalletJack').checked;
+            // No longer need includePalletJack or selectedCompany
 
             const costOptimizedSolutions = [];
 
+            // Iterate over all available vehicles
             for (const [vehicleType, currentVehicleSpec] of Object.entries(vehicleSpecs)) {
                 let palletsRemainingToLoad = JSON.parse(JSON.stringify(allOriginalPallets)); 
                 let trucksNeededForThisType = 0;
@@ -1197,7 +1196,7 @@
 
                 while (palletsRemainingToLoad.length > 0) {
                     trucksNeededForThisType++;
-                    const singleTruckLoadResult = evaluateSingleTruckCapacity(palletsRemainingToLoad, currentVehicleSpec, includePalletJack);
+                    const singleTruckLoadResult = evaluateSingleTruckCapacity(palletsRemainingToLoad, currentVehicleSpec);
 
                     if (singleTruckLoadResult.reasonForFailure) { // If pallet jack too big for this truck
                         canLoadAllPalletsWithThisType = false;
@@ -1213,8 +1212,7 @@
                         loadedPallets: singleTruckLoadResult.placed, 
                         notLoadedInThisTruck: singleTruckLoadResult.notFitted, 
                         weightOKForThisTruck: singleTruckLoadResult.weightOK,
-                        totalWeightInThisTruck: singleTruckLoadResult.totalWeightOfFittedPallets,
-                        palletJackIncluded: includePalletJack // Record if pallet jack was included for this truck
+                        totalWeightInThisTruck: singleTruckLoadResult.totalWeightOfFittedPallets
                     });
 
                     const fittedPalletIdsThisRound = new Set(singleTruckLoadResult.placed.map(p => p.id));
@@ -1233,8 +1231,7 @@
                         truckLoadDetails: truckLoadDetailsForThisVehicleType,
                         efficiency: '100.0', 
                         fittedPallets: allOriginalPallets.length,
-                        totalPallets: allOriginalPallets.length,
-                        palletJackIncludedInSolution: includePalletJack 
+                        totalPallets: allOriginalPallets.length
                     });
                 } else {
                      costOptimizedSolutions.push({
@@ -1247,8 +1244,7 @@
                         reasonForFailure: singleTruckLoadResult.reasonForFailure || "無法使用此類型貨車裝載所有棧板（可能因尺寸、高度、重量限制或空間不足）。",
                         efficiency: '0.0',
                         fittedPallets: 0, 
-                        totalPallets: allOriginalPallets.length,
-                        palletJackIncludedInSolution: includePalletJack
+                        totalPallets: allOriginalPallets.length
                     });
                 }
             }
@@ -1258,51 +1254,10 @@
         /**
          * Evaluates how many pallets from palletsToLoad can fit into a SINGLE vehicle.
          * Accounts for height, 2D packing, and weight limits for that single vehicle.
-         * @param {Array} palletsToLoad - Array of pallet objects (with length, width, height, weight, id) to attempt loading.
-         * @param {Object} vehicleSpec - Specifications of the single truck.
-         * @param {boolean} includePalletJack - Whether to account for pallet jack space.
-         * @returns {Object} Result object including placed pallets, not fitted pallets, and checks.
          */
-        function evaluateSingleTruckCapacity(palletsToLoad, vehicleSpec, includePalletJack) {
+        function evaluateSingleTruckCapacity(palletsToLoad, vehicleSpec) {
             const { length: vLength, width: vWidth, height: vHeight, maxWeight } = vehicleSpec;
             const palletsConsideredForLoading = JSON.parse(JSON.stringify(palletsToLoad)); 
-
-            // Prepare fixed occupied spaces (e.g., for pallet jack)
-            let fixedOccupiedRects = [];
-            if (includePalletJack) {
-                // 油壓車放置在車廂的最後(右方放)，且順時針轉90度
-                // 意味著在車廂平面圖上，其「長度」會沿著車廂的Y軸（寬度方向），
-                // 其「寬度」會沿著車廂的X軸（長度方向）。
-                const pjLengthOnTruckX = PALLET_JACK_SPACE.actualWidth; // 油壓車的寬度沿著車廂的長度方向
-                const pjWidthOnTruckY = PALLET_JACK_SPACE.actualLength; // 油壓車的長度沿著車廂的寬度方向
-
-                // Check if pallet jack itself fits within the truck dimensions
-                if (pjLengthOnTruckX > vLength || pjWidthOnTruckY > vWidth) {
-                    return {
-                        placed: [],
-                        notFitted: palletsConsideredForLoading, 
-                        fittedPalletsCount: 0,
-                        weightOK: false,
-                        totalWeightOfFittedPallets: 0,
-                        reasonForFailure: `油壓車 (${PALLET_JACK_SPACE.actualWidth}x${PALLET_JACK_SPACE.actualLength}cm) 尺寸過大，無法放入此車廂 (${vLength}x${vWidth}cm)。`
-                    };
-                }
-                
-                // 油壓車的 X 座標是車廂長度 - 油壓車在X軸上的佔用長度
-                const pjX = vLength - pjLengthOnTruckX; 
-                const pjY = 0; // 假設靠 Y=0 側放置
-
-                fixedOccupiedRects.push({
-                    x: pjX, y: pjY,
-                    x2: pjX + pjLengthOnTruckX,
-                    y2: pjY + pjWidthOnTruckY,
-                    isFixedItem: true, 
-                    name: PALLET_JACK_SPACE.name,
-                    // Store original dimensions for visualization text
-                    originalLength: PALLET_JACK_SPACE.actualLength, 
-                    originalWidth: PALLET_JACK_SPACE.actualWidth
-                });
-            }
 
             // 1. Height Check: Filter out pallets too tall for this single truck
             const palletsSuitableForHeight = palletsConsideredForLoading.filter(p => p.height <= vHeight);
@@ -1320,9 +1275,8 @@
 
             // 2. 2D Space Packing (using the existing packPallets function)
             const layouts = [];
-            // Pass fixedOccupiedRects to packPallets
-            layouts.push(packPallets(palletsSuitableForHeight, vLength, vWidth, false, fixedOccupiedRects)); 
-            layouts.push(packPallets(palletsSuitableForHeight, vLength, vWidth, true, fixedOccupiedRects));  
+            layouts.push(packPallets(palletsSuitableForHeight, vLength, vWidth, false)); 
+            layouts.push(packPallets(palletsSuitableForHeight, vLength, vWidth, true));  
             
             let bestLayout = layouts.reduce((best, current) =>
                 current.fittedCount > best.fittedCount ? current : best, 
@@ -1361,17 +1315,15 @@
          * @param {number} containerLength - Container length.
          * @param {number} containerWidth - Container width.
          * @param {boolean} allowRotation - Whether pallets can be rotated 90 degrees.
-         * @param {Array} initialOccupiedSpaces - Optional array of pre-occupied rectangles (e.g., for pallet jack).
          * @returns {Object} Object with placed and notFitted pallets.
          */
-        function packPallets(pallets, containerLength, containerWidth, allowRotation, initialOccupiedSpaces = []) {
+        function packPallets(pallets, containerLength, containerWidth, allowRotation) {
             // Sort pallets by area in descending order (common heuristic for greedy packing)
             const sortedPallets = [...pallets].sort((a, b) => (b.length * b.width) - (a.length * a.width));
             const placed = [];
             const notFittedInitially = []; 
             
-            // Initialize occupiedSpaces with any fixed items
-            const occupiedSpaces = JSON.parse(JSON.stringify(initialOccupiedSpaces)); 
+            const occupiedSpaces = []; 
         
             const step = 1; // 1cm step for higher precision
         
@@ -1488,7 +1440,6 @@
                         </div>
                     </div>
                     <p>此方案使用 ${bestSolution.numTrucks} 台 ${bestSolution.vehicleType} 型貨車。所有棧板均可裝載。</p>
-                    ${bestSolution.palletJackIncludedInSolution ? '<p class="info">此方案已將油壓車空間納入計算。</p>' : ''}
                     
                     <!-- Display layout for each truck in the best solution -->
                     ${bestSolution.truckLoadDetails.map((truckDetail, index) => `
@@ -1504,8 +1455,7 @@
                                         notFitted: truckDetail.notLoadedInThisTruck, 
                                         fittedCount: truckDetail.loadedPallets.length
                                     }, 
-                                    bestSolution.specs, // Pass the vehicle spec for correct dimensions
-                                    truckDetail.palletJackIncluded // Pass if pallet jack was included for this specific truck
+                                    bestSolution.specs // Pass the vehicle spec for correct dimensions
                                 )}
                             </div>
                             <div class="fitted-info">
@@ -1571,7 +1521,6 @@
                                         $${sol.pricePerTruck.toLocaleString()}
                                     </div>
                                 </div>
-                                ${sol.palletJackIncludedInSolution ? '<p class="info">此方案已將油壓車空間納入計算。</p>' : ''}
                                 <!-- Display layout for each truck in this alternative solution -->
                                 ${sol.truckLoadDetails.map((truckDetail, index) => `
                                     <div class="layout-display">
@@ -1586,8 +1535,7 @@
                                                     notFitted: truckDetail.notLoadedInThisTruck, 
                                                     fittedCount: truckDetail.loadedPallets.length
                                                 }, 
-                                                sol.specs,
-                                                truckDetail.palletJackIncluded 
+                                                sol.specs
                                             )}
                                         </div>
                                         <div class="fitted-info">
@@ -1612,8 +1560,8 @@
             resultsDiv.innerHTML = html;
         }
         
-        // generateLayoutVisualization 函數現在接收單台車的規格和是否包含油壓車的標誌
-        function generateLayoutVisualization(layout, vehicleSpec, includePalletJackInViz = false) { 
+        // generateLayoutVisualization 函數現在接收單台車的規格
+        function generateLayoutVisualization(layout, vehicleSpec) { 
             const maxSvgDisplayWidth = 400; 
             const maxSvgDisplayHeight = 300; 
             
@@ -1630,46 +1578,21 @@
                           fill="var(--color-surface)" stroke="var(--color-border)" stroke-width="2"/>
             `;
 
-            // Draw Pallet Jack if included
-            if (includePalletJackInViz) {
-                // 油壓車放置在車廂的最後(右方放)，且順時針轉90度
-                // 意味著在車廂平面圖上，其「長度」會沿著車廂的Y軸（寬度方向），
-                // 其「寬度」會沿著車廂的X軸（長度方向）。
-                const pjLengthOnTruckX = PALLET_JACK_SPACE.actualWidth; // 油壓車的寬度沿著車廂的長度方向
-                const pjWidthOnTruckY = PALLET_JACK_SPACE.actualLength; // 油壓車的長度沿著車廂的寬度方向
-
-                // 油壓車的 X 座標是車廂長度 - 油壓車在X軸上的佔用長度
-                const pjX = 25 + (vehicleSpec.length - pjLengthOnTruckX) * scale; 
-                const pjY = 25 + 0 * scale; // 假設靠 Y=0 側放置
-
-                svg += `
-                    <rect x="${pjX}" y="${pjY}" width="${pjLengthOnTruckX * scale}" height="${pjWidthOnTruckY * scale}" 
-                          fill="#888" stroke="#555" stroke-width="1" opacity="0.7"/>
-                    <text x="${pjX + (pjLengthOnTruckX * scale)/2}" y="${pjY + (pjWidthOnTruckY * scale)/2}" 
-                          text-anchor="middle" dominant-baseline="middle" 
-                          font-size="${Math.min(pjLengthOnTruckX * scale, pjWidthOnTruckY * scale) > 20 ? 8 : 6}" font-weight="bold" fill="white">
-                        油壓車
-                    </text>
-                `;
-            }
-
             if (layout && layout.placed && Array.isArray(layout.placed)) {
                 layout.placed.forEach((pallet) => { 
                     const x = 25 + pallet.x * scale;
                     const y = 25 + pallet.y * scale;
                     const width = pallet.placedLength * scale;
                     const height = pallet.placedWidth * scale;
-                    
-                    const hue = (pallet.id.hashCode ? pallet.id.hashCode() : Math.random() * 360) % 360; 
-                    const color = `hsl(${hue}, 70%, 80%)`;
-                    const strokeColor = `hsl(${hue}, 70%, 60%)`;
+                    const color = "#FFCC00"; // background color
+                    const textColor = "#D40511"; // text color
                     
                     svg += `
                         <rect x="${x}" y="${y}" width="${width}" height="${height}" 
-                              fill="${color}" stroke="${strokeColor}" stroke-width="1" opacity="0.8"/>
+                              fill="${color}" stroke="#D4A900" stroke-width="1" opacity="0.8"/>
                         <text x="${x + width/2}" y="${y + height/2}" 
                               text-anchor="middle" dominant-baseline="middle" 
-                              font-size="${Math.min(width, height) > 20 ? 8 : 6}" font-weight="bold" fill="var(--color-text)">
+                              font-size="${Math.min(width, height) > 20 ? 10 : 8}" font-weight="bold" fill="${textColor}">
                             ${pallet.length}×${pallet.width}
                             ${pallet.rotated ? '↻' : ''}
                         </text>
@@ -1705,6 +1628,30 @@
 
         document.addEventListener('DOMContentLoaded', function() {
             console.log('台灣車型選擇計算器已載入 (含成本優化與多車配置圖)');
+            
+            populateVehiclePriceInputs();
+
+            // Add event listener for Enter key to trigger calculation
+            document.addEventListener('keydown', function(event) {
+                if (event.key === 'Enter') {
+                    event.preventDefault(); // Prevent default action (like form submission)
+                    calculate();
+                }
+            });
+
+            // Back to top button logic
+            const backToTopButton = document.getElementById('back-to-top');
+            window.onscroll = () => {
+                if (document.body.scrollTop > 200 || document.documentElement.scrollTop > 200) {
+                    backToTopButton.style.display = "block";
+                } else {
+                    backToTopButton.style.display = "none";
+                }
+            };
+            backToTopButton.addEventListener('click', () => {
+                window.scrollTo({top: 0, behavior: 'smooth'});
+            });
+
             // Set up IDs for the default pallet input for accessibility
             const firstPalletInput = document.querySelector('#pallet-inputs .pallet-input');
             if (firstPalletInput) {
